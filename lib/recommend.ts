@@ -11,6 +11,133 @@ const BUDGET_RANGES = {
   premium: { min: 180, max: 10000 },
 };
 
+interface RecommendationReason {
+  item: GearItem;
+  score: number;
+  reasons: string[];
+}
+
+function generatePersonalizedReasons(
+  item: GearItem,
+  answers: QuizAnswers,
+  score: number
+): string[] {
+  const reasons: string[] = [];
+
+  // Running style reasons
+  if (answers.runningStyle === "trail" && item.tags.includes("trail")) {
+    reasons.push("Perfect for trail running");
+  }
+  if (answers.runningStyle === "road" && item.tags.includes("road")) {
+    reasons.push("Ideal for road running");
+  }
+  if (answers.runningStyle === "both") {
+    reasons.push("Versatile for road and trail");
+  }
+
+  // Budget reasons
+  const range = BUDGET_RANGES[answers.budget];
+  if (item.price >= range.min && item.price <= range.max) {
+    reasons.push(`Fits your ${answers.budget} budget perfectly`);
+  }
+
+  // Experience level
+  if (answers.experienceLevel === "beginner" && item.tags.includes("beginner-friendly")) {
+    reasons.push("Great for beginners");
+  }
+  if (answers.experienceLevel === "advanced" && (item.tags.includes("racing") || item.tags.includes("elite"))) {
+    reasons.push("Advanced performance gear");
+  }
+
+  // Distance and goals
+  const distanceReasons = {
+    "5k": ["Great for 5K races", "Perfect for short runs"],
+    "10k": ["Ideal for 10K training", "Versatile for mid-distance"],
+    half: ["Excellent for half marathon", "Built for long distances"],
+    full: ["Marathon ready", "Race day performance"],
+    ultra: ["Ultra running specialist", "Built for endurance"],
+  };
+  if (distanceReasons[answers.distance]) {
+    reasons.push(...distanceReasons[answers.distance].slice(0, 1));
+  }
+
+  // Climate
+  if (answers.climate === "hot" && item.tags.includes("hot-weather")) {
+    reasons.push("Great for hot weather");
+  }
+  if (answers.climate === "cold" && item.tags.includes("cold-weather")) {
+    reasons.push("Perfect for cold weather");
+  }
+
+  // Time of day
+  if (answers.timeOfDay === "night" && item.tags.includes("night")) {
+    reasons.push("Excellent for night running");
+  }
+
+  // Injury considerations
+  const injuryHistory: InjuryType[] = answers.injuryHistory ?? [];
+  const hasLegInjuries = injuryHistory.some((i) =>
+    ["knee", "shin_splints", "it_band", "achilles"].includes(i)
+  );
+  if (hasLegInjuries && (item.tags.includes("max-cushion") || item.tags.includes("stability"))) {
+    reasons.push("Extra support for injury prevention");
+  }
+
+  // Shoe-specific preferences
+  if (item.category === "shoes") {
+    if (answers.cushionPref === "soft" && item.tags.includes("max-cushion")) {
+      reasons.push("Maximum cushioning comfort");
+    }
+    if (answers.supportPref === "strong_stability" && item.tags.includes("stability")) {
+      reasons.push("Enhanced stability support");
+    }
+    if (answers.supportPref === "neutral" && item.tags.includes("neutral")) {
+      reasons.push("Neutral ride design");
+    }
+  }
+
+  // Tech preferences
+  if (item.category === "watches") {
+    if (answers.techComfort === "simple" && item.tags.includes("fitness")) {
+      reasons.push("Simple and easy to use");
+    }
+    if (answers.techComfort === "advanced" && item.tags.includes("training")) {
+      reasons.push("Advanced training features");
+    }
+  }
+
+  // Safety and visibility
+  if (answers.trafficExposure === "busy_roads" && item.tags.includes("safety")) {
+    reasons.push("Enhanced safety features");
+  }
+  if (answers.lighting === "dark_trails" && item.tags.includes("headlamp")) {
+    reasons.push("Perfect for dark trail running");
+  }
+
+  // Hydration preferences
+  if (answers.hydrationCarry?.includes("vest") && item.subcategory === "vest") {
+    reasons.push("Matches your vest preference");
+  }
+  if (answers.hydrationCarry?.includes("handheld") && item.tags.includes("handheld")) {
+    reasons.push("Handheld convenience");
+  }
+
+  // Recovery focus
+  if (item.tags.includes("recovery") && (answers.recoveryFocus ?? []).length > 0) {
+    reasons.push("Supports your recovery goals");
+  }
+
+  // Premium features
+  if (answers.budget === "premium" && score > 15) {
+    reasons.push("Premium quality gear");
+  }
+  if (item.tags.includes("carbon-plate") && answers.primaryGoal === "race_pr") {
+    reasons.push("Race day performance tech");
+  }
+
+  return reasons.slice(0, 4); // Limit to top 4 reasons
+}
+
 function scoreGearItem(item: GearItem, answers: QuizAnswers): number {
   // 1) Hard filters first so some items are completely excluded
 
@@ -218,4 +345,18 @@ export function getRecommendations(answers: QuizAnswers): GearItem[] {
     .sort((a, b) => b.score - a.score)
     .slice(0, 12)
     .map(({ item }) => item);
+}
+
+export function getTopRecommendationsWithReasons(answers: QuizAnswers): RecommendationReason[] {
+  const all = getAllGear();
+  const scored = all.map((item) => ({
+    item,
+    score: scoreGearItem(item, answers),
+    reasons: generatePersonalizedReasons(item, answers, scoreGearItem(item, answers)),
+  }));
+  
+  return scored
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
 }

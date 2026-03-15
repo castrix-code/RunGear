@@ -109,12 +109,11 @@ export default function QuizPage() {
   function handleSubmit() {
     startTransition(() => {
       const params = new URLSearchParams();
-    params.set("quiz", "1");
       params.set(
         "answers",
         btoa(encodeURIComponent(JSON.stringify(answers)))
       );
-      router.push(`/catalog?${params.toString()}`);
+      router.push(`/quiz-results?${params.toString()}`);
     });
   }
 
